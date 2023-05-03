@@ -1,0 +1,83 @@
+syntax = "proto3";
+
+
+package game_scene;
+
+
+
+// Servicer:
+
+service GameScene {
+  rpc Start(Players) returns(Response);
+  rpc Move(Matches) returns(Response);
+  rpc Leave(Player) returns(Response);
+  rpc Get(RequestState) returns(Response);
+  rpc Stop(Game) returns(Response);
+}
+
+
+
+// Request types of arguments:
+
+message Player {
+  string session_id = 1;
+  string name = 2;
+}
+
+message Players {
+  string session_id = 1;
+  repeated string names = 2;
+}
+
+message Matches {
+  string session_id = 1;
+  int32 number = 2;
+}
+
+message RequestState {
+  string session_id = 1;
+  repeated EnumState codes = 2;
+}
+
+message Game {
+  string session_id = 1;
+}
+
+
+
+// Response types of arguments:
+
+message Response {
+  bool confirm_status = 1;
+  oneof select {
+    ResponseState state_body = 2;
+    ResponseError error_body = 3;
+  }
+}
+
+message ResponseState {
+  int32 matches = 1;
+  string move = 2;
+  string winner = 3;
+  repeated string players = 4;
+  repeated string outsiders = 5;
+  repeated EnumState codes = 6;
+}
+
+message ResponseError {
+  string error_type = 1;
+  string error_msg = 2;
+}
+
+
+// Enum symbols:
+
+enum EnumState {
+  STATE_UNSPECIFIED = 0;
+  STATE_ALL = 1;
+  STATE_MATCHES = 2;
+  STATE_MOVE = 3;
+  STATE_WINNER = 4;
+  STATE_PLAYERS = 5;
+  STATE_OUTSIDERS = 6;
+}
