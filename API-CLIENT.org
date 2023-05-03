@@ -1,0 +1,139 @@
+#+TITLE: API Gateway test-client
+#+AUTHOR: SciBourne
+#+EMAIL: bourne-sci-hack@yandex.ru
+
+#+LANGUAGE: en
+#+PROPERTY: results silent
+#+STARTUP: overview
+#+STARTUP: indent
+#+STARTUP: hidestars
+
+
+
+#+NAME: entry-point
+: http://localhost:8000/api/v1
+
+
+
+* Root
+
+** Check API (HEAD)
+
+#+BEGIN_SRC restclient :var ~=entry-point
+  HEAD :~/
+#+END_SRC
+
+
+** Check API (GET)
+
+#+BEGIN_SRC restclient :var ~=entry-point
+  GET :~/
+#+END_SRC
+
+
+
+* Game Scenes
+
+** Get sessions
+
+#+BEGIN_SRC restclient :var ~=entry-point
+  GET :~/game-scenes
+#+END_SRC
+
+
+** Get active sessions
+
+#+BEGIN_SRC restclient :var ~=entry-point
+  GET :~/game-scenes?status=active
+#+END_SRC
+
+
+** Get wait sessions
+
+#+BEGIN_SRC restclient :var ~=entry-point
+  GET :~/game-scenes?status=wait
+#+END_SRC
+
+
+** Get number of sessions
+
+#+BEGIN_SRC restclient :var ~=entry-point
+  GET :~/game-scenes?agg=count
+#+END_SRC
+
+
+
+* Game Scene
+
+** Create session
+
+#+begin_src restclient :var ~=entry-point
+  POST :~/game-scenes
+       {"session_id": "12345",
+           "players": ["SciBourne", "John", "Fetcher"]}
+#+end_src
+
+
+** Stop session
+
+#+begin_src restclient :var ~=entry-point
+  DELETE :~/game-scenes/12345
+#+end_src
+
+
+** Leave player
+
+#+begin_src restclient :var ~=entry-point
+  PATCH :~/game-scenes/12345/players
+       {"leave": "John"}
+#+end_src
+
+
+** Make move
+
+#+begin_src restclient :var ~=entry-point
+  PATCH :~/game-scenes/12345/matches
+       {"take": 3}
+#+end_src
+
+
+** Get state
+
+#+begin_src restclient :var ~=entry-point
+  GET :~/game-scenes/12345
+#+end_src
+
+
+*** Get matches
+
+#+begin_src restclient :var ~=entry-point
+  GET :~/game-scenes/12345/matches
+#+end_src
+
+
+*** Get players
+
+#+begin_src restclient :var ~=entry-point
+  GET :~/game-scenes/12345/players
+#+end_src
+
+
+*** Get outsiders
+
+#+begin_src restclient :var ~=entry-point
+  GET :~/game-scenes/12345/outsiders
+#+end_src
+
+
+*** Get winner
+
+#+begin_src restclient :var ~=entry-point
+  GET :~/game-scenes/12345/winner
+#+end_src
+
+
+*** Get move
+
+#+begin_src restclient :var ~=entry-point
+  GET :~/game-scenes/12345/move
+#+end_src
