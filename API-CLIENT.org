@@ -10,130 +10,363 @@
 
 
 
-#+NAME: entry-point
-: http://localhost:8000/api/v1
+#+NAME: rest-entry-point
+: http://127.0.0.1:8000/rest/v1
+
+#+NAME: ws-entry-point
+: ws://127.0.0.1:8000/ws/v1
 
 
 
-* Root
+* WebSocket API
 
-** Check API (HEAD)
+** WebSocket client
 
-#+BEGIN_SRC restclient :var ~=entry-point
+#+begin_src emacs-lisp
+  (require 'websocket)
+
+
+  (defun print-websocket-state (status msg)
+    (message (format "%s: %s\n%s: %s"
+                     (propertize " status"
+                                 'face
+                                 '(:foreground "spring green"))
+                     status
+
+                     (propertize "content"
+                                 'face
+                                 '(:foreground "spring green"))
+                     msg)))
+
+
+  (defun websocket-client (&rest parameters)
+    (let* ((inhibit-quit t)
+
+           (ws-status nil)
+           (ws-msg nil)
+
+           (entry-point (plist-get parameters :entry-point))
+           (route (plist-get parameters :route))
+           (url (concat entry-point route))
+
+           (ws-connect
+             (websocket-open url
+                             :on-open (lambda (_websocket)
+                                        (setq ws-status "OPEN"))
+
+                             :on-close (lambda (_websocket)
+                                         (setq ws-status "CLOSE"))
+
+                             :on-error (lambda (_websocket error-type frame)
+                                         (setq ws-status "ERROR")
+                                         (setq ws-msg
+                                               (format "%s" frame)))
+
+                             :on-message (lambda (_websocket frame)
+                                           (setq ws-msg
+                                                 (websocket-frame-text frame))))))
+
+      (unless
+          (with-local-quit
+              (while t
+                     (print-websocket-state ws-status ws-msg)
+                     (sleep-for 1)))
+
+        (progn (websocket-close ws-connect)
+               (setq quit-flag nil)
+               (print-websocket-state ws-status ws-msg)))))
+#+end_src
+
+#+RESULTS:
+: websocket-client
+
+
+** Game Scene
+
+*** SUB session state
+
+#+begin_src emacs-lisp :var ws=ws-entry-point
+  (websocket-client :entry-point ws
+                    :route "/game-scene/1000")
+#+end_src
+
+
+** Game Lobby
+
+*** SUB lobby state
+
+#+begin_src emacs-lisp :var ws=ws-entry-point
+  (websocket-client :entry-point ws
+                    :route "/game-lobby?status=OPEN&max_players=5")
+#+end_src
+
+#+RESULTS:
+:  status: CLOSE
+: content: {"count":false,"status":"OPEN","max_players":5,"limit":null}
+
+
+*** SUB room state
+
+#+begin_src emacs-lisp :var ws=ws-entry-point
+  (websocket-client :entry-point ws
+                    :route "/game-lobby/1000")
+#+end_src
+
+
+
+* REST API
+
+** Root
+
+*** Check API
+
+#+BEGIN_SRC restclient :var ~=rest-entry-point
   HEAD :~/
 #+END_SRC
 
 
-** Check API (GET)
 
-#+BEGIN_SRC restclient :var ~=entry-point
-  GET :~/
+** Game Scene
+
+*** Scene state
+
+**** Get sessions
+
+#+BEGIN_SRC restclient :var ~=rest-entry-point
+  GET :~/game-scene
+#+END_SRC
+
+
+**** Get active sessions
+
+#+BEGIN_SRC restclient :var ~=rest-entry-point
+  GET :~/game-scene?status=active
+#+END_SRC
+
+
+**** Get wait sessions
+
+#+BEGIN_SRC restclient :var ~=rest-entry-point
+  GET :~/game-scene?status=wait
+#+END_SRC
+
+
+**** Get number of sessions
+
+#+BEGIN_SRC restclient :var ~=rest-entry-point
+  GET :~/game-scene?agg=count
 #+END_SRC
 
 
 
-* Game Scenes
+*** Session state
 
-** Get sessions
+**** Get state
 
-#+BEGIN_SRC restclient :var ~=entry-point
-  GET :~/game-scenes
-#+END_SRC
-
-
-** Get active sessions
-
-#+BEGIN_SRC restclient :var ~=entry-point
-  GET :~/game-scenes?status=active
-#+END_SRC
-
-
-** Get wait sessions
-
-#+BEGIN_SRC restclient :var ~=entry-point
-  GET :~/game-scenes?status=wait
-#+END_SRC
-
-
-** Get number of sessions
-
-#+BEGIN_SRC restclient :var ~=entry-point
-  GET :~/game-scenes?agg=count
-#+END_SRC
-
-
-
-* Game Scene
-
-** Create session
-
-#+begin_src restclient :var ~=entry-point
-  POST :~/game-scenes
-       {"session_id": "12345",
-           "players": ["SciBourne", "John", "Fetcher"]}
+#+begin_src restclient :var ~=rest-entry-point
+  GET :~/game-scene/12345
 #+end_src
 
 
-** Stop session
+**** Get matches
 
-#+begin_src restclient :var ~=entry-point
-  DELETE :~/game-scenes/12345
+#+begin_src restclient :var ~=rest-entry-point
+  GET :~/game-scene/12345/matches
 #+end_src
 
 
-** Leave player
+**** Get players
 
-#+begin_src restclient :var ~=entry-point
-  PATCH :~/game-scenes/12345/players
-       {"leave": "John"}
+#+begin_src restclient :var ~=rest-entry-point
+  GET :~/game-scene/12345/players
 #+end_src
 
 
-** Make move
+**** Get outsiders
 
-#+begin_src restclient :var ~=entry-point
-  PATCH :~/game-scenes/12345/matches
-       {"take": 3}
+#+begin_src restclient :var ~=rest-entry-point
+  GET :~/game-scene/12345/outsiders
 #+end_src
 
 
-** Get state
+**** Get winner
 
-#+begin_src restclient :var ~=entry-point
-  GET :~/game-scenes/12345
+#+begin_src restclient :var ~=rest-entry-point
+  GET :~/game-scene/12345/winner
 #+end_src
 
 
-*** Get matches
+**** Get move
 
-#+begin_src restclient :var ~=entry-point
-  GET :~/game-scenes/12345/matches
+#+begin_src restclient :var ~=rest-entry-point
+  GET :~/game-scene/12345/move
 #+end_src
 
 
-*** Get players
 
-#+begin_src restclient :var ~=entry-point
-  GET :~/game-scenes/12345/players
+*** Session action
+
+**** Create session
+
+#+begin_src restclient :var ~=rest-entry-point
+  POST :~/game-scene
+
+  {
+      "session_id": "12345",
+      "players": [
+          "SciBourne",
+          "John",
+          "Fetcher"]
+  }
 #+end_src
 
 
-*** Get outsiders
+**** Stop session
 
-#+begin_src restclient :var ~=entry-point
-  GET :~/game-scenes/12345/outsiders
+#+begin_src restclient :var ~=rest-entry-point
+  DELETE :~/game-scene/12345
 #+end_src
 
 
-*** Get winner
+**** Leave player
 
-#+begin_src restclient :var ~=entry-point
-  GET :~/game-scenes/12345/winner
+#+begin_src restclient :var ~=rest-entry-point
+  PATCH :~/game-scene/12345/players
+
+  {
+      "leave": "John"
+  }
 #+end_src
 
 
-*** Get move
+**** Make move
 
-#+begin_src restclient :var ~=entry-point
-  GET :~/game-scenes/12345/move
+#+begin_src restclient :var ~=rest-entry-point
+  PATCH :~/game-scene/12345/matches
+
+  {
+      "take": 3
+  }
+#+end_src
+
+
+
+
+** Game Lobby
+
+*** Lobby state
+
+**** Get all rooms
+
+#+begin_src restclient :var ~=rest-entry-point
+  GET :~/game-lobby
+#+end_src
+
+
+**** Aggregate fuction
+
+#+begin_src restclient :var ~=rest-entry-point
+  GET :~/game-lobby?count=true
+#+end_src
+
+
+**** Get OPEN rooms
+
+#+begin_src restclient :var ~=rest-entry-point
+  GET :~/game-lobby?status=OPEN
+#+end_src
+
+
+**** Get OPEN rooms filtered by maximum players
+
+#+begin_src restclient :var ~=rest-entry-point
+  GET :~/game-lobby?status=OPEN&max_players=3
+#+end_src
+
+
+
+*** Room state
+
+**** Get room state
+
+#+begin_src restclient :var ~=rest-entry-point
+  GET :~/game-lobby/1000
+#+end_src
+
+
+**** Get room status
+
+#+begin_src restclient :var ~=rest-entry-point
+  PATCH :~/game-lobby/1000/status
+#+end_src
+
+
+**** Get room max players
+
+#+begin_src restclient :var ~=rest-entry-point
+  GET :~/game-lobby/1000/max_players
+#+end_src
+
+
+**** Get room players
+
+#+begin_src restclient :var ~=rest-entry-point
+  GET :~/game-lobby/1000/players
+#+end_src
+
+
+**** Get number of room players
+
+#+begin_src restclient :var ~=rest-entry-point
+  GET :~/game-lobby/1000/players?agg=count
+#+end_src
+
+
+*** Room action
+
+**** Open room
+
+#+begin_src restclient :var ~=rest-entry-point
+  POST :~/game-lobby
+  Requestor="1000"
+
+  {
+  "max_players": 3
+  }
+#+end_src
+
+
+**** Close room
+
+#+begin_src restclient :var ~=rest-entry-point
+  DELETE :~/game-lobby/1000
+  Requestor="1000"
+#+end_src
+
+
+**** Join
+
+#+begin_src restclient :var ~=rest-entry-point
+  POST :~/game-lobby/1000/players
+  Requestor="1001"
+#+end_src
+
+
+**** Kick
+
+#+begin_src restclient :var ~=rest-entry-point
+  DELETE :~/game-lobby/1000/players/1001
+  Requestor="1000"
+#+end_src
+
+
+**** Change status
+
+#+begin_src restclient :var ~=rest-entry-point
+  PATCH :~/game-lobby/1000/status
+  Requestor="1000"
+
+  {
+      "status": "PLAY"
+  }
 #+end_src
