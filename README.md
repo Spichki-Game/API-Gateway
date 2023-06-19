@@ -9,4 +9,4 @@ Async: REST-API <--> gRPC-API <--> REST-API
 <img src="url">
 
 ## Main backend model
-<img src="url">
+<img src="img/gateway_arch.png">
