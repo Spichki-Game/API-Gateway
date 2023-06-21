@@ -1,24 +1,33 @@
+import os
 import asyncio
+
 from fastapi.staticfiles import StaticFiles
 from hypercorn.asyncio import serve as hypercorn_serve
 
 from api_gateway.versioner import VersionedFastAPI, EnumProto
-from api_gateway.router import http_router, websocket_router
+from api_gateway.router import RouterManager
+from api_gateway.logger import LoggerBuilder
 
 from api_gateway.config import (
     ServerConfigBuilder,
     GatewayBuilder,
-    command_line_argv
+    command_line_argv,
+    GW_REST_PREFIX,
+    GW_WS_PREFIX
 )
 
-from api_gateway.config import (
+from api_gateway.docs import (
     GW_TITLE,
-    GW_REST_PREFIX,
-    GW_WS_PREFIX,
     GW_DESCRIPTION
 )
 
 
+log = LoggerBuilder(
+    level=os.getenv("LOG_LEVEL")
+)
+
+
+@log.catch
 @command_line_argv
 def start(
 
@@ -37,6 +46,9 @@ def start(
         **locals()
     )
 
+    router = RouterManager()
+    router.scan_services()
+
     api_gateway = GatewayBuilder(
         title=GW_TITLE,
         description=GW_DESCRIPTION,
@@ -45,7 +57,7 @@ def start(
             GW_REST_PREFIX,
 
             VersionedFastAPI(
-                app=http_router,
+                app=router.http,
                 proto=EnumProto.http
             )
         ),
@@ -54,15 +66,31 @@ def start(
             GW_WS_PREFIX,
 
             VersionedFastAPI(
-                app=websocket_router,
+                app=router.websocket,
                 proto=EnumProto.websocket
             )
         )
     )
 
     api_gateway.mount(
-        "/img",
-        StaticFiles(directory="img")
+        "/img", StaticFiles(directory="img")
+    )
+
+    log.success(
+        "API Gateway is ready"
+    )
+
+    log.info(
+        "Hypercorn will be starting at "
+
+        f"http{'s' if secure_connection else ''}://"
+        f"{host}:{port}"
+    )
+
+    log.info(
+        "API Gateway documentation: "
+        f"http{'s' if secure_connection else ''}://"
+        f"{host}:{port}/docs"
     )
 
     asyncio.run(
