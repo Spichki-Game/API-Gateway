@@ -15,6 +15,7 @@ grpcio-tools = "^1.51.3"
 fastapi-versioning = "^0.10.0"
 grpc-api-generator = {git = "https://github.com/Spichki-Game/gRPC-API-generator.git"}
 fastapi-asyncapi = {git = "https://github.com/SciBourne/fastapi-asyncapi.git"}
+loguru = "^0.7.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.2.2"
