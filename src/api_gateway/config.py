@@ -7,39 +7,11 @@ from fastapi import FastAPI
 from hypercorn.config import Config as HypercornConfig
 
 
-GW_TITLE: str = "API Gateway [ Spichki Game ]"
-
-GW_REST_PREFIX: str = "/api"
-GW_WS_PREFIX: str = "/ws"
-
-GW_DESCRIPTION = (
-    "<br> \n"
-    "<br> \n"
-    "<br> \n"
-
-    "## Gateway mountpoints \n"
-
-    "| Mountpoint name | Link | Documentation version | \n"
-    "|---|---|---| \n"
-
-    "| `REST API` |"
-    f"[ {GW_REST_PREFIX}/v1/docs ]({GW_REST_PREFIX}/v1/docs)"
-    "| OpenAPI | \n"
-
-    "| `WebSocket API` |"
-    f"[{GW_WS_PREFIX}/v1/docs]({GW_WS_PREFIX}/v1/docs)"
-    "| AsyncAPI | \n"
-
-    "<br> \n"
-    "<br> \n"
-    "<br> \n"
-
-    "## Arch scheme \n"
-    "![Gateway Arch](img/gateway_arch.png)"
-)
+GW_REST_PREFIX = "/api"
+GW_WS_PREFIX = "/ws"
 
 
-class ServerConfigBuilder:
+class ServerConfigBuilder(HypercornConfig):
     def __init__(self,
                  secure_connection: bool,
                  host: str,
@@ -53,12 +25,18 @@ class ServerConfigBuilder:
         else:
             self.bind = f"{host}:{port}"
 
+        self.loglevel = "INFO"
+        self.access_log_format = "%(m)s: HTTP %(H)s %(h)s%(Uq)s %(s)s %(st)s"
+
+        self.accesslog = "logs/hypercorn_access.log"
+        self.errorlog = "logs/hypercorn_error.log"
+
     def __new__(cls, **kwargs) -> HypercornConfig:
         cls.__init__(config := HypercornConfig(), **kwargs)
         return config
 
 
-class GatewayBuilder:
+class GatewayBuilder(FastAPI):
     def __init__(
 
             self,
@@ -81,7 +59,9 @@ class GatewayBuilder:
                 tuple[str, FastAPI],
                 "WebSocket mountpoint for FastAPI application: (prefix, app)",
                 ("/ws", FastAPI)
-            ]    ):
+            ]
+
+    ):
 
         self.title = title
         self.description = description
@@ -95,11 +75,9 @@ class GatewayBuilder:
 
 
 class EnumArgvOption(str, Enum):
-    secure_connection = "--secure_connection"
-
+    secure_connection = "--secure-connection"
     host = "--host"
     port = "--port"
-
     sertfile = "--certfile"
     keyfile = "--keyfile"
 
@@ -107,34 +85,15 @@ class EnumArgvOption(str, Enum):
 def command_line_argv(start_func: Callable) -> Callable:
     @wraps(start_func)
     def wrapper(**parameters) -> Callable:
-        if len(sys.argv) != 1:
-            for option_key, option_value in (sys.argv[1::2], sys.argv[2::2]):
-                match option_key:
+        if len(sys.argv) > 1:
+            keys = [
+                key[2:].replace('-', '_') for key in [
+                    EnumArgvOption(opt) for opt in sys.argv[1::2]
+                ]
+            ]
 
-                    case EnumArgvOption.secure_connection:
-                        parameters.update(
-                            secure_connection=option_value
-                        )
-
-                    case EnumArgvOption.host:
-                        parameters.update(
-                            host=option_value
-                        )
-
-                    case EnumArgvOption.port:
-                        parameters.update(
-                            port=option_value
-                        )
-
-                    case EnumArgvOption.sertfile:
-                        parameters.update(
-                            certfile=option_value
-                        )
-
-                    case EnumArgvOption.keyfile:
-                        parameters.update(
-                            keyfile=option_value
-                        )
+            values = sys.argv[2::2]
+            parameters = dict(zip(keys, values))
 
         return start_func(**parameters)
     return wrapper
