@@ -1,26 +1,41 @@
+import os
 import sys
+
+from typing import Annotated
 
 from loguru import logger
 from loguru._logger import Logger
 
 
-class LoggerBuilder(Logger):
-    def __init__(self, level: str = "INFO"):
-        self.remove(0)
+log: Annotated[Logger, "loguru logger instance"] = logger
+log: Logger
 
-        self.add(sink=sys.stderr, level=level)
 
-        self.add(
-            sink="logs/api_gateway.log",
-            level=level,
-            serialize=True,
-            rotation="1 day",
-            retention=1,
-            delay=True
-        )
+LEVEL: str = os.getenv("LOG_LEVEL") or "INFO"
+LEVEL_LOGFILE: str = "DEBUG"
 
-        self.info("Logger configured")
+ROTATION_LOGFILE: str | int = "100 MB"
+RETENTION_LOGFILE: int = 2
 
-    def __new__(cls, *args, **kwargs) -> Logger:
-        cls.__init__(log := logger, *args, **kwargs)
-        return log
+PATH_OUTFILE: str = "logs/api_gateway.log"
+
+
+log.remove(handler_id=0)
+
+log.add(
+    sink=sys.stderr,
+    level=LEVEL
+)
+
+log.add(
+    sink=PATH_OUTFILE,
+    level=LEVEL_LOGFILE,
+    serialize=True,
+    rotation=ROTATION_LOGFILE,
+    retention=RETENTION_LOGFILE,
+    delay=True
+)
+
+
+log.success("Logger configured")
+log.success("Start logging")
