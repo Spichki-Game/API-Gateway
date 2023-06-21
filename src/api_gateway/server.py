@@ -1,4 +1,3 @@
-import os
 import asyncio
 
 from fastapi.staticfiles import StaticFiles
@@ -6,7 +5,7 @@ from hypercorn.asyncio import serve as hypercorn_serve
 
 from api_gateway.versioner import VersionedFastAPI, EnumProto
 from api_gateway.router import RouterManager
-from api_gateway.logger import LoggerBuilder
+from api_gateway.logger import log
 
 from api_gateway.config import (
     ServerConfigBuilder,
@@ -22,12 +21,6 @@ from api_gateway.docs import (
 )
 
 
-log = LoggerBuilder(
-    level=os.getenv("LOG_LEVEL")
-)
-
-
-@log.catch
 @command_line_argv
 def start(
 
