@@ -1,8 +1,9 @@
 import os
-import logging
 
 from fastapi import FastAPI, APIRouter, Response
 from fastapi_versioning import version
+
+from api_gateway.logger import log
 
 from api_gateway.docs import (
     websocket_docs,
@@ -18,6 +19,7 @@ from api_gateway.versioner import (
 
 class ServiceManager:
     SERVICE_PACKAGE = "handlers"
+    SERVICE_PATH = "src/handlers"
 
     def __init__(self):
         self.service_names: list[str] = []
@@ -26,12 +28,7 @@ class ServiceManager:
 
     def import_routers(self, srv_name: str) -> bool:
         module_import = f"from {self.SERVICE_PACKAGE}.{srv_name}"
-
-        names_import = [
-            "http_router",
-            "websocket_router"
-        ]
-
+        names_import = ["http_router", "websocket_router"]
         aliases = [f"{srv_name}_{name}" for name in names_import]
 
         for name, alias in zip(names_import, aliases):
@@ -42,33 +39,36 @@ class ServiceManager:
 
             try:
                 exec(code_body)
+                log.success(f"{alias} imported")
                 return True
 
-            except ImportError as err:
-                print(f"[ ERR ]: {srv_name}: {err}")
+            except ImportError:
+                log.error(f"{alias} cannot be imported")
                 return False
 
     def scan(self):
-        service_names = os.listdir(f"src/{self.SERVICE_PACKAGE}")
+        log.info(f"Service directory: {self.SERVICE_PATH}/")
 
-        print("Find services:",
-              *service_names,
-              sep='\n -> ',
-              end='\n'*2)
+        service_names = os.listdir(self.SERVICE_PATH)
+
+        for srv_name in service_names:
+            log.info(f"-> find service: {srv_name}")
 
         for srv_name in service_names:
             if self.import_routers(srv_name):
                 self.service_names.append(srv_name)
 
-        print("\nValid services:",
-              *self.service_names,
-              sep='\n -> ')
+        if self.service_names:
+            for srv_name in self.service_names:
+                log.success(f"-> valid service: {srv_name}")
+        else:
+            log.warning("Not valid services")
 
-        print("\nAvailable routers:",
-              f" ->      HTTP: {self.http_routers}",
-              f" -> WebSocket: {self.websocket_routers}",
-              sep='\n',
-              end='\n'*2)
+        log.info(f"-> HTTP routers: {self.http_routers}")
+        log.info(f"-> WebSocket routers: {self.websocket_routers}")
+
+        if not self.http_routers and not self.websocket_routers:
+            log.warning("Not available routers")
 
 
 class RouterManager:
