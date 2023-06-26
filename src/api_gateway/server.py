@@ -4,7 +4,7 @@ from fastapi.staticfiles import StaticFiles
 from hypercorn.asyncio import serve as hypercorn_serve
 
 from api_gateway.versioner import VersionedFastAPI, EnumProto
-from api_gateway.router import RouterManager
+from api_gateway.service_manager import ServiceManager
 from api_gateway.logger import log
 
 from api_gateway.config import (
@@ -19,6 +19,20 @@ from api_gateway.docs import (
     GW_TITLE,
     GW_DESCRIPTION
 )
+
+# TODO: Hypercorn config.yaml
+# TODO: API Gateway config.yaml
+# TODO: ServiceManager config.yaml
+# TODO: Versioner config.yml
+
+# TODO: Registry Service
+# TODO: Router Service
+
+# TODO: Controller HTTP -- gRPC
+# TODO: Controller WebSocket -- gRPC
+
+# TODO: Dynamic update routers
+# TODO: Dynamic update configs
 
 
 @command_line_argv
@@ -36,11 +50,18 @@ def start(
 ) -> None:
 
     server_config = ServerConfigBuilder(
-        **locals()
+        secure_connection=secure_connection,
+        host=host,
+        port=port,
+        sertfile=sertfile,
+        keyfile=keyfile
     )
 
-    router = RouterManager()
-    router.scan_services()
+    service_pool = ServiceManager(
+        registry_addr="127.0.0.1:6310",
+        auto_update=True,
+        time_step="15 sec"
+    )
 
     api_gateway = GatewayBuilder(
         title=GW_TITLE,
@@ -50,7 +71,7 @@ def start(
             GW_REST_PREFIX,
 
             VersionedFastAPI(
-                app=router.http,
+                app=service_pool.router.http,
                 proto=EnumProto.http
             )
         ),
@@ -59,7 +80,7 @@ def start(
             GW_WS_PREFIX,
 
             VersionedFastAPI(
-                app=router.websocket,
+                app=service_pool.router.websocket,
                 proto=EnumProto.websocket
             )
         )
@@ -74,7 +95,7 @@ def start(
     )
 
     log.info(
-        "Hypercorn will be starting at "
+        "Hypercorn server starting on "
 
         f"http{'s' if secure_connection else ''}://"
         f"{host}:{port}"
@@ -86,6 +107,15 @@ def start(
         f"{host}:{port}/docs"
     )
 
-    asyncio.run(
-        hypercorn_serve(api_gateway, server_config)
+    asyncio.gather(
+
+        service_pool.updater(
+            gateway=api_gateway
+        ),
+
+        hypercorn_serve(
+            app=api_gateway,
+            config=server_config
+        )
+
     )
