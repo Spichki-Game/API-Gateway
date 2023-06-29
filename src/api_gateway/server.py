@@ -1,121 +1,75 @@
 import asyncio
+from typing import Any
 
-from fastapi.staticfiles import StaticFiles
-from hypercorn.asyncio import serve as hypercorn_serve
+from api_gateway.exceptions import ConfigUpdated, ServiceUpdated
+from api_gateway.config import command_line_argv
+from api_gateway.managers import GatewayManager
 
-from api_gateway.versioner import VersionedFastAPI, EnumProto
-from api_gateway.service_manager import ServiceManager
 from api_gateway.logger import log
 
-from api_gateway.config import (
-    ServerConfigBuilder,
-    GatewayBuilder,
-    command_line_argv,
-    GW_REST_PREFIX,
-    GW_WS_PREFIX
-)
 
-from api_gateway.docs import (
-    GW_TITLE,
-    GW_DESCRIPTION
-)
+async def gateway_event_loop(server_options: dict[str, Any]) -> None:
+    gateway = GatewayManager(
+        server_options=server_options
+    )
 
-# TODO: Hypercorn config.yaml
-# TODO: API Gateway config.yaml
-# TODO: ServiceManager config.yaml
-# TODO: Versioner config.yml
+    while True:
+        try:
+            async with asyncio.TaskGroup() as group:
+                group.create_task(
+                    gateway.run()
+                )
 
-# TODO: Registry Service
-# TODO: Router Service
+                group.create_task(
+                    gateway.config_watcher()
+                )
 
-# TODO: Controller HTTP -- gRPC
-# TODO: Controller WebSocket -- gRPC
+                group.create_task(
+                    gateway.service_watcher()
+                )
 
-# TODO: Dynamic update routers
-# TODO: Dynamic update configs
+        except ConfigUpdated:
+            if gateway.rebuild():
+                log.success(
+                    "API Gateway configuration updated"
+                )
+
+            else:
+                log.warning(
+                    "API Gateway configuration has some problems, "
+                    "updating is not possible"
+                )
+
+        except ServiceUpdated:
+            if gateway.rebuild():
+                log.success(
+                    "Service pool routes updated"
+                )
+
+            else:
+                log.warning(
+                    "Something in the pool of services has some problems, "
+                    "updating is not possible"
+                )
 
 
 @command_line_argv
 def start(
 
         *,
-        secure_connection: bool = False,
 
-        host: str = "localhost",
-        port: str = "8000",
+        host: str | None = None,
+        port: str | None = None,
 
-        sertfile: str = ".ssl/cert.pem",
-        keyfile: str = ".ssl/key.pem"
+        secure_connection: bool | None = None,
+
+        sertfile: str | None = None,
+        keyfile: str | None = None
 
 ) -> None:
 
-    server_config = ServerConfigBuilder(
-        secure_connection=secure_connection,
-        host=host,
-        port=port,
-        sertfile=sertfile,
-        keyfile=keyfile
-    )
-
-    service_pool = ServiceManager(
-        registry_addr="127.0.0.1:6310",
-        auto_update=True,
-        time_step="15 sec"
-    )
-
-    api_gateway = GatewayBuilder(
-        title=GW_TITLE,
-        description=GW_DESCRIPTION,
-
-        rest_api_mountpoint=(
-            GW_REST_PREFIX,
-
-            VersionedFastAPI(
-                app=service_pool.router.http,
-                proto=EnumProto.http
-            )
-        ),
-
-        ws_api_mountpoint=(
-            GW_WS_PREFIX,
-
-            VersionedFastAPI(
-                app=service_pool.router.websocket,
-                proto=EnumProto.websocket
-            )
+    asyncio.run(
+        gateway_event_loop(
+            server_options=locals()
         )
-    )
-
-    api_gateway.mount(
-        "/img", StaticFiles(directory="img")
-    )
-
-    log.success(
-        "API Gateway is ready"
-    )
-
-    log.info(
-        "Hypercorn server starting on "
-
-        f"http{'s' if secure_connection else ''}://"
-        f"{host}:{port}"
-    )
-
-    log.info(
-        "API Gateway documentation: "
-        f"http{'s' if secure_connection else ''}://"
-        f"{host}:{port}/docs"
-    )
-
-    asyncio.gather(
-
-        service_pool.updater(
-            gateway=api_gateway
-        ),
-
-        hypercorn_serve(
-            app=api_gateway,
-            config=server_config
-        )
-
     )
