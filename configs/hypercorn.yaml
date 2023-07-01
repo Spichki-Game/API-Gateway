@@ -1,0 +1,24 @@
+░▒▓█████▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄█████▓▒░
+░▒▓█                                      █▓▒░
+░▒▓█    Hypercorn server configuration    █▓▒░
+░▒▓█                                      █▓▒░
+░▒▓█   ╔══════════════════════════════╗   █▓▒░
+░▒▓█████▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀█████▓▒░
+
+
+
+host: 127.0.0.1
+port: 8000
+
+
+secure_mode: OFF
+secure_port: 443
+
+certfile: .ssl/cert.pem
+keyfile: .ssl/key.pem
+
+
+accesslog: logs/hypercorn_access.log
+errorlog: logs/heypercorn_error.log
+
+access_log_format: "%(m)s: ver: %(H)s url: %(h)s%(Uq)s %(s)s %(st)s"
